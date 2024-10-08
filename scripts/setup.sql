@@ -1,3 +1,5 @@
+-- Replace <user_name> with your user name before running the SQL
+
 ALTER SESSION SET query_tag = '{"origin":"sf_sit-is","name":"frostbyte_fraud_detection","version":{"major":1, "minor":0},"attributes":{"is_quickstart":1, "source":"sql"}}';
 
 -- Switch to ACCOUNTADMIN role
