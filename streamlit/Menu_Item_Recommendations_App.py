@@ -122,7 +122,7 @@ def get_filtered_data():
         cust_avgs = get_additional_columns_needed()
         item_df = session.table('ml.menu_item_features').filter("item_category != 'Beverage'")
         customer_df = session.table('ml.customer_features')
-        purchase_df = session.table('analytics.loyalty_purchased_items_Sis')
+        purchase_df = session.table('analytics.loyalty_purchased_items')
         if st.session_state.filters['trucks_not_visited']:
             all_customer_ids_and_trucks = purchase_df \
             .join(item_df, purchase_df.menu_item_name == item_df.menu_item_name) \
@@ -214,7 +214,7 @@ def infer_model(test_data):
         sql_in_clause = sql_in_clause[:-2]
         history_df = session.sql(f"""select customer_id, 
                                     menu_item_name as Purchase_History
-                                    from analytics.loyalty_purchased_items_Sis
+                                    from analytics.loyalty_purchased_items
                                     where purchased = 1
                                     and customer_id in ({sql_in_clause});""").to_pandas()
         grouped_history_df = history_df.groupby('CUSTOMER_ID')['PURCHASE_HISTORY'].agg(list).reset_index()
