@@ -1,5 +1,3 @@
--- Replace <user_name> with your user name before running the SQL
-
 ALTER SESSION SET query_tag = '{"origin":"sf_sit-is","name":"frostbyte_fraud_detection","version":{"major":1, "minor":0},"attributes":{"is_quickstart":1, "source":"sql"}}';
 
 -- Switch to ACCOUNTADMIN role
@@ -8,8 +6,11 @@ USE ROLE ACCOUNTADMIN;
 -- Create a new role for data scientists
 CREATE OR REPLACE ROLE TASTYBYTESENDTOENDML_DATA_SCIENTIST;
 
+-- set my_user_var variable to equal the logged-in user
+SET my_user_var = (SELECT  '"' || CURRENT_USER() || '"' );
+
 -- Grant role to current user
-GRANT ROLE TASTYBYTESENDTOENDML_DATA_SCIENTIST TO USER <user_name>;
+GRANT ROLE TASTYBYTESENDTOENDML_DATA_SCIENTIST TO USER identifier($my_user_var);
 
 -- Create a warehouse with specified configuration
 CREATE OR REPLACE WAREHOUSE TASTYBYTESENDTOENDML_DS_WH 
@@ -71,7 +72,7 @@ GRANT ALL PRIVILEGES ON COMPUTE POOL TASTYBYTESENDTOENDML_CONSUMER_POOL TO ROLE 
 CREATE OR REPLACE NETWORK RULE TASTYBYTESENDTOENDML_PROD.ANALYTICS.TASTYBYTESENDTOENDML_CONDA_NETWORK_RULE
     TYPE = HOST_PORT,
     MODE = EGRESS,
-    VALUE_LIST = ('conda.anaconda.org');
+    VALUE_LIST = ('conda.anaconda.org', 'pypi.org', 'pypi.python.org', 'pythonhosted.org', 'files.pythonhosted.org');
 
 -- Grant all privileges on the Conda network rule to the data scientist role
 GRANT ALL PRIVILEGES ON NETWORK RULE TASTYBYTESENDTOENDML_PROD.ANALYTICS.TASTYBYTESENDTOENDML_CONDA_NETWORK_RULE 
