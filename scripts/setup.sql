@@ -12,6 +12,12 @@ SET my_user_var = (SELECT  '"' || CURRENT_USER() || '"' );
 -- Grant role to current user
 GRANT ROLE TASTYBYTESENDTOENDML_DATA_SCIENTIST TO USER identifier($my_user_var);
 
+-- Create a new role for feature store producer
+CREATE OR REPLACE ROLE TASTYBYTESENDTOENDML_FS_PRODUCER;
+
+-- Grant role to current user
+GRANT ROLE TASTYBYTESENDTOENDML_FS_PRODUCER TO USER identifier($my_user_var);
+
 -- Create a warehouse with specified configuration
 CREATE OR REPLACE WAREHOUSE TASTYBYTESENDTOENDML_DS_WH 
     SCALING_POLICY = 'STANDARD', 
