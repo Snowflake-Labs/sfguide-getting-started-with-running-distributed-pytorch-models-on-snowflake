@@ -363,18 +363,24 @@ st.button("**:blue[Get Recommendations]**", on_click=get_recommendations)
 if st.session_state.get_recommendations_clicked:
     if st.session_state.filters_changed:
         df = get_filtered_data()
-        data = process_features(df)
-        st.session_state.recommendations = infer_model(data)
-        st.session_state.filters_changed = False
+        st.session_state.df_count = df.count()
+        if st.session_state.df_count == 0:
+            st.warning("Customers May have visited all the trucks or tried all the menu items, Please select different filters.")
+        else:
+            data = process_features(df)
+            st.session_state.recommendations = infer_model(data)
+            st.session_state.filters_changed = False
     if st.session_state.details_changed:
         col1, col2 = st.columns([12,1])
-        col1.markdown("**Top Recommended Menu Items**")
-        col2.button("**:blue[Save]**", on_click=save_recommendations)
-        if st.session_state.save_clicked:
-            with st.spinner("Saving Recommendations..."):
-                # st.session_state.recommendations.write.mode("overwrite").save_as_table("recommendations")
-                session.write_pandas(st.session_state.recommendations, "recommendations", auto_create_table=True, overwrite=True)
-                st.success("Recommendations Saved Successfully!")
-                st.session_state.save_clicked = False
-        st.dataframe(st.session_state.recommendations, use_container_width=True)
-        st.session_state.details_changed = False
+        if st.session_state.df_count > 0:
+            col1.markdown("**Top Recommended Menu Items**")
+            col2.button("**:blue[Save]**", on_click=save_recommendations)
+            if st.session_state.save_clicked:
+                with st.spinner("Saving Recommendations..."):
+                    # st.session_state.recommendations.write.mode("overwrite").save_as_table("recommendations")
+                    session.write_pandas(st.session_state.recommendations, "recommendations", auto_create_table=True, overwrite=True)
+                    st.success("Recommendations Saved Successfully!")
+                    st.session_state.save_clicked = False
+            st.dataframe(st.session_state.recommendations, use_container_width=True)
+            st.session_state.details_changed = False
+
