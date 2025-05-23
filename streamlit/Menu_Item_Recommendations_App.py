@@ -8,6 +8,8 @@ from snowflake.snowpark.functions import rank, col
 from snowflake.snowpark.window import Window
 import pandas as pd
 import time
+import torch
+from snowflake.ml.registry import Registry
 
 st.set_page_config(layout="wide", initial_sidebar_state="expanded")
 session = get_active_session()
@@ -168,22 +170,38 @@ def process_features(df):
         
 
 # Function to simulate inference on the deep learning model
+# Function to simulate inference on the deep learning model
 def infer_model(test_data):
     with st.spinner("Inferring Deep Learning Model on SPCS..."):
         time.sleep(1)
-        recommendations_df = test_data.select(
-                        "customer_id",
-                        "city",
-                        "truck_brand_name",
-                        F.col("menu_item_name").alias("menu_item_recommendations"),
-                        "purchased",
-                        F.call_udf(
-                            "REGISTRY.TB_REC_SERVICE_DEMO_PREDICT_FORWARD", 
-                            F.array_construct(*sparse_features_encoded),
-                            F.array_construct(*dense_features),
-                        )["output_feature_0"][0].alias("prediction")
-                    ).order_by("prediction", ascending=0)
-        
+
+        # Get deployed model
+        reg = Registry(session=session, database_name=session.get_current_database(), schema_name='REGISTRY')#, database_name='TEST_MAY_19_TASTYBYTESENDTOENDML_PROD', schema_name="REGISTRY")
+        m = reg.get_model('RECMODELDEMO')
+        mv = m.version("v1")
+    
+        test_data_pd = test_data.to_pandas()
+
+        # Build input tensor
+        sparse_input = torch.tensor(test_data_pd[sparse_features_encoded].values, dtype=torch.int)
+        dense_input = torch.tensor(test_data_pd[dense_features].values, dtype=torch.float32)
+        input_data = [sparse_input, dense_input]
+
+        # Run inference on deployed model
+        predictions = mv.run(
+            input_data,
+            function_name = "FORWARD",
+            service_name = "TB_REC_SERVICE_DEMO_PREDICT"
+        )
+
+        # Concat with input dataframe
+        predictions['output_feature_0'] = predictions['output_feature_0'].apply(
+            lambda x: x[0] if isinstance(x, list) else float(x)
+        )
+        recommendations = pd.concat([test_data_pd[["CUSTOMER_ID", "CITY", "MENU_ITEM_NAME", "PURCHASED"]], 
+                               predictions.rename(columns={'output_feature_0': 'PREDICTION'})], axis = 1)
+        recommendations_df = session.create_dataframe(recommendations)
+
         # Define a window partitioned by customer_id and ordered by prediction score
         windowSpec = Window.partitionBy(col("customer_id")).orderBy(col("prediction").desc())
             
@@ -200,7 +218,7 @@ def infer_model(test_data):
         top_predictions_pd = topPredictionsDf.toPandas()
         
         # Group by customer_id and collect the top 3 recommendations as a list
-        grouped_top_predictions = top_predictions_pd.groupby("CUSTOMER_ID").agg({'CITY': 'first','MENU_ITEM_RECOMMENDATIONS': lambda x: list(x)}).reset_index()
+        grouped_top_predictions = top_predictions_pd.groupby("CUSTOMER_ID").agg({'CITY': 'first','MENU_ITEM_NAME': lambda x: list(x)}).reset_index()
         
         distinct_customer_ids = grouped_top_predictions['CUSTOMER_ID'].unique()
         sql_in_clause = ""
@@ -214,7 +232,7 @@ def infer_model(test_data):
         sql_in_clause = sql_in_clause[:-2]
         history_df = session.sql(f"""select customer_id, 
                                     menu_item_name as Purchase_History
-                                    from analytics.loyalty_purchased_items
+                                    from ml.loyalty_purchased_items_Sis
                                     where purchased = 1
                                     and customer_id in ({sql_in_clause});""").to_pandas()
         grouped_history_df = history_df.groupby('CUSTOMER_ID')['PURCHASE_HISTORY'].agg(list).reset_index()
@@ -223,10 +241,9 @@ def infer_model(test_data):
         finalDf_pd = pd.merge(grouped_top_predictions, grouped_history_df, on='CUSTOMER_ID', how='left')
 
         # Reorder columns
-        finalDf_pd = finalDf_pd[['CUSTOMER_ID', 'CITY', 'PURCHASE_HISTORY', 'MENU_ITEM_RECOMMENDATIONS']]
+        finalDf_pd = finalDf_pd[['CUSTOMER_ID', 'CITY', 'PURCHASE_HISTORY', 'MENU_ITEM_NAME']]
 
         finalDf_pd['PURCHASE_HISTORY'] = finalDf_pd['PURCHASE_HISTORY'].apply(lambda x: x if isinstance(x, list) else [])
-        finalDf_pd = finalDf_pd.sort_values(by='CUSTOMER_ID', ascending=True)
     return finalDf_pd
 
 # Function to simulate saving recommendations
