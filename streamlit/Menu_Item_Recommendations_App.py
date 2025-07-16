@@ -232,7 +232,7 @@ def infer_model(test_data):
         sql_in_clause = sql_in_clause[:-2]
         history_df = session.sql(f"""select customer_id, 
                                     menu_item_name as Purchase_History
-                                    from ml.loyalty_purchased_items_Sis
+                                    from loyalty_purchased_items
                                     where purchased = 1
                                     and customer_id in ({sql_in_clause});""").to_pandas()
         grouped_history_df = history_df.groupby('CUSTOMER_ID')['PURCHASE_HISTORY'].agg(list).reset_index()
@@ -400,4 +400,3 @@ if st.session_state.get_recommendations_clicked:
                     st.session_state.save_clicked = False
             st.dataframe(st.session_state.recommendations, use_container_width=True)
             st.session_state.details_changed = False
-
